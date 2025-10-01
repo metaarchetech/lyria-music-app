@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lyria Music Demo</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #0b0b0f;
+        color: #e6e6e6;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      .container {
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 24px;
+        background: #0f1115;
+        border: 1px solid #2a2f3a;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        color: #c9d4ff;
+      }
+      p { color: #9aa3b2; margin-top: 0; }
+      textarea {
+        width: 100%;
+        min-height: 96px;
+        background: #0a0c10;
+        color: #e6e6e6;
+        border: 1px solid #2a2f3a;
+        border-radius: 8px;
+        padding: 12px;
+        resize: vertical;
+      }
+      .row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+      button {
+        background: linear-gradient(135deg, #3946ff, #7b2cff);
+        border: none; color: white; padding: 10px 16px; border-radius: 8px;
+        cursor: pointer; font-weight: 600;
+      }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      .status { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #9aa3b2; }
+      .audio-card { margin-top: 16px; border-top: 1px dashed #2a2f3a; padding-top: 16px; }
+      .hidden { display: none; }
+      a.link { color: #9ecbff; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Lyria Music Demo</h1>
+      <p>輸入音樂提示詞（prompt），呼叫本機後端 <code>http://localhost:3001/api/generate-music</code> 進行音樂生成。</p>
+
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" placeholder="e.g. A futuristic ambient track with gentle pulses and evolving textures"></textarea>
+      <div class="row">
+        <button id="btn-generate">Generate 15s</button>
+        <span class="status" id="status"></span>
+      </div>
+
+      <div class="audio-card hidden" id="audio-card">
+        <audio id="audio" controls></audio>
+        <div class="row">
+          <button id="btn-download">Download WAV</button>
+          <a id="raw-link" class="link" href="#" download="music.wav">Open raw</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const btn = $('#btn-generate');
+      const statusEl = $('#status');
+      const promptEl = $('#prompt');
+      const audioEl = $('#audio');
+      const audioCard = $('#audio-card');
+      const btnDownload = $('#btn-download');
+      const rawLink = $('#raw-link');
+
+      function setBusy(isBusy, msg = '') {
+        btn.disabled = isBusy;
+        statusEl.textContent = msg;
+      }
+
+      async function generate() {
+        const prompt = (promptEl.value || '').trim();
+        if (!prompt) {
+          alert('請先輸入 prompt');
+          return;
+        }
+        setBusy(true, 'Generating...');
+        try {
+          const resp = await fetch('http://localhost:3001/api/generate-music', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+          });
+          if (!resp.ok) {
+            const errText = await resp.text();
+            throw new Error(`HTTP ${resp.status}: ${errText}`);
+          }
+          const data = await resp.json();
+          if (!data || !data.audioData) throw new Error('No audioData in response');
+
+          const byteArray = Uint8Array.from(atob(data.audioData), c => c.charCodeAt(0));
+          const blob = new Blob([byteArray], { type: 'audio/wav' });
+          const url = URL.createObjectURL(blob);
+
+          audioEl.src = url;
+          rawLink.href = url;
+          audioCard.classList.remove('hidden');
+          setBusy(false, 'Done');
+
+          btnDownload.onclick = () => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'music.wav';
+            a.click();
+          };
+        } catch (e) {
+          console.error(e);
+          setBusy(false, 'Error');
+          alert(`生成失敗: ${e.message}`);
+        }
+      }
+
+      btn.addEventListener('click', generate);
+    </script>
+  </body>
+  </html>
+
+
