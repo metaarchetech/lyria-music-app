@@ -61,6 +61,7 @@
         <button id="btn-generate">Generate 15s</button>
         <span class="status" id="status"></span>
       </div>
+      <div class="status" id="detail"></div>
 
       <div class="audio-card hidden" id="audio-card">
         <audio id="audio" controls></audio>
@@ -80,10 +81,12 @@
       const audioCard = $('#audio-card');
       const btnDownload = $('#btn-download');
       const rawLink = $('#raw-link');
+      const detailEl = $('#detail');
 
       function setBusy(isBusy, msg = '') {
         btn.disabled = isBusy;
         statusEl.textContent = msg;
+        if (!isBusy) setTimeout(() => (statusEl.textContent = ''), 1500);
       }
 
       async function generate() {
@@ -101,6 +104,7 @@
           });
           if (!resp.ok) {
             const errText = await resp.text();
+            detailEl.textContent = errText;
             throw new Error(`HTTP ${resp.status}: ${errText}`);
           }
           const data = await resp.json();
@@ -124,6 +128,7 @@
         } catch (e) {
           console.error(e);
           setBusy(false, 'Error');
+          detailEl.textContent = String(e?.message || e);
           alert(`生成失敗: ${e.message}`);
         }
       }
